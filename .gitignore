@@ -1,0 +1,18 @@
+# Deployment state and secrets — never commit (see the iron rule in README.md)
+*.env
+gate.env
+*.token
+bus-token.txt
+*.url
+clients.json
+oauth.json
+passpage.json
+*.db
+*.db-*
+*.log
+audit.log
+/gate
+gate.new
+/agent-bus/agent-bus
+*.bak-*
+*.muse-github-snapshot-sync.json
