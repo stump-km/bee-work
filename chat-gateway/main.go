@@ -332,6 +332,7 @@ type Turn struct{ Role, Text string } // "user" / "assistant"
 
 type Job struct {
 	ID, TaskID, Status, Reply string // Status: running / done / failed / timeout
+	sessionID                string // owning web session; never exposed in API responses
 }
 
 type Gateway struct {
@@ -394,6 +395,20 @@ func (g *Gateway) Job(id string) *Job {
 	return nil
 }
 
+// JobForSession returns a job only to the session that created it. A nil
+// result intentionally covers both unknown IDs and jobs owned by another
+// session, preventing job-ID enumeration across authenticated sessions.
+func (g *Gateway) JobForSession(id, sid string) *Job {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	j := g.jobs[id]
+	if j == nil || sid == "" || j.sessionID != sid {
+		return nil
+	}
+	c := *j
+	return &c
+}
+
 func (g *Gateway) set(j *Job, status, reply string) {
 	g.mu.Lock()
 	j.Status, j.Reply = status, reply
@@ -411,7 +426,7 @@ func (g *Gateway) Submit(sid, text string, done func(Job)) (string, error) {
 		return "", fmt.Errorf("还有任务在处理中，请稍后再发")
 	}
 	g.running[sid]++
-	j := &Job{ID: rid(), Status: "running"}
+	j := &Job{ID: rid(), Status: "running", sessionID: sid}
 	g.jobs[j.ID] = j
 	g.mu.Unlock()
 
@@ -578,11 +593,12 @@ func (w *Web) routes() http.Handler {
 		writeJSON(rw, 200, map[string]string{"job_id": id})
 	})
 	mux.HandleFunc("GET /api/jobs/{id}", func(rw http.ResponseWriter, r *http.Request) {
-		if _, ok := w.sid(r); !ok {
+		sid, ok := w.sid(r)
+		if !ok {
 			writeJSON(rw, 401, map[string]string{"error": "未登录"})
 			return
 		}
-		j := w.g.Job(r.PathValue("id"))
+		j := w.g.JobForSession(r.PathValue("id"), sid)
 		if j == nil {
 			writeJSON(rw, 404, map[string]string{"error": "not found"})
 			return
