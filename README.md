@@ -22,6 +22,25 @@ claimed, heartbeated and reviewed.
   traffic; secrets are never logged. The gate embeds a small PNG icon
   (`front-door/favicon.png`) at build time; drop in any PNG under that
   name before building.
+- **deepseek-worker/** — the worker (Python). A resident process that
+  claims `deepseek`-role tasks from the bus, answers them through a
+  configured LLM provider, and completes them with the full answer as
+  the artifact. If the model returns an empty answer (a reasoning model
+  can burn its whole budget thinking), it retries once at a larger
+  token budget, then fails the task honestly instead of completing it
+  empty. All secrets are read at runtime — the bus token from a local
+  token file, the provider key from a credentials file by reference
+  name; neither file is ever committed.
+- **chat-gateway/** — the chat front end (Go). A small web chat that
+  turns each user message into a bus task for a role (`/claude`,
+  `/code`, `/research` prefixes, DeepSeek by default), polls the board
+  through one shared hub goroutine, and returns the worker's answer
+  when the task lands. Access is gated by a single web code from the
+  environment; bus credentials likewise come from the environment.
+  v1 is web-only: the Telegram slot is an empty placeholder in the
+  code (no bot token), and the `/claude` role slot stays empty until
+  a Claude worker process exists — routing to it simply reports that
+  no worker claimed the task.
 
 ## Governance (mode 乙+)
 
@@ -57,5 +76,5 @@ files (`clients.json`, `oauth.json`, `gate.env`, `*.token`, `*.url`,
    → consent → token) is verified end to end; ChatGPT connects with a
    user-defined OAuth client whose per-app redirect URI is registered
    on the gate.
-4. This repository is the single canonical source for both pieces.
+4. This repository is the single canonical source for all four pieces.
 5. Every participant gets a claim/wake path — no task sits unanswered.

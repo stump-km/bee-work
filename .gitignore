@@ -16,3 +16,5 @@ gate.new
 /agent-bus/agent-bus
 *.bak-*
 *.muse-github-snapshot-sync.json
+/chat-gateway/chat-gateway
+__pycache__/
